@@ -87,6 +87,8 @@ class Args:
     """the coefficient used for update target critic with weight of critic"""
     alpha: float = 2.5
     """normalize Q value in policy training, lambda = alpha/(|Q|.mean())"""
+    beta: float = 1.0
+    """regularize bc loss in policy training, actor_loss = q_loss + beta * bc_loss"""
 
 
     # Environment/experiment specific arguments
@@ -521,7 +523,8 @@ if __name__ == "__main__":
     if args.track:
         import wandb
         config = vars(args)
-        config["eval_env_cfg"] = dict(**env_kwargs, num_envs=args.num_eval_envs, env_id=args.env_id, env_horizon=gym_utils.find_max_episode_steps_value(envs))
+        # config["eval_env_cfg"] = dict(**env_kwargs, num_envs=args.num_eval_envs, env_id=args.env_id, env_horizon=gym_utils.find_max_episode_steps_value(envs))
+        config["eval_env_cfg"] = dict(**env_kwargs, num_envs=args.num_eval_envs, env_id=args.env_id, env_horizon=args.max_episode_steps)
         wandb.init(
             project=args.wandb_project_name,
             entity=args.wandb_entity,
@@ -742,14 +745,15 @@ if __name__ == "__main__":
         else:
             raise RuntimeError("This type of horizon computation mode is not defined.")
 
-        lmbda = args.alpha/Q_seq.abs().mean().detach()
+        lmbda = args.alpha/(Q_seq.abs().mean().detach())
         q_loss = -lmbda * Q_seq_mean.mean() 
+        # actor_loss = q_loss + args.beta * bc_loss
         actor_loss = q_loss + bc_loss
 
         actor_optimizer.zero_grad()
-        bc_loss.backward()
-        if args.grad_norm > 0:
-            actor_grad_norms = nn.utils.clip_grad_norm_(actor.parameters(), max_norm=args.grad_norm, norm_type=2)
+        actor_loss.backward()
+        # if args.grad_norm > 0:
+        #     actor_grad_norms = nn.utils.clip_grad_norm_(actor.parameters(), max_norm=args.grad_norm, norm_type=2)
         actor_optimizer.step()
         actor_lr_scheduler.step() # step lr scheduler every batch, this is different from standard pytorch behavior
 
@@ -785,10 +789,10 @@ if __name__ == "__main__":
             print(f"obsPredictor_loss: {obsPredictor_loss.item()}")
             print(f"------------------------------------------------------")
             print(f"Q1: {current_Q1.mean().item()}, Q2: {current_Q2.mean().item()}, target_Q_mean[:4, :]: {target_Q_mean[:4, :].flatten()}")
-            print(f"current_Q1: {current_Q1[:4, :].flatten()}")
-            print(f"current_Q2: {current_Q2[:4, :].flatten()}")
-            print(f"target_Q: {target_Q[:4, :]}")
-            print(f"actor_Q_seq: {Q_seq[:4, :]}")
+            # print(f"current_Q1: {current_Q1[:4, :].flatten()}")
+            # print(f"current_Q2: {current_Q2[:4, :].flatten()}")
+            # print(f"target_Q: {target_Q[:4, :]}")
+            # print(f"actor_Q_seq: {Q_seq[:4, :]}")
             print(f"critic_loss: {critic_loss.item()}")
             print(f"------------------------------------------------------")
             print(f"q_loss: {q_loss.item()}, Q: {Q_seq.mean().item()}")
@@ -799,7 +803,7 @@ if __name__ == "__main__":
             
             writer.add_scalar("charts/actor_learning_rate", actor_optimizer.param_groups[0]["lr"], iteration)
             writer.add_scalar("charts/critic_learning_rate", critic_optimizer.param_groups[0]["lr"], iteration)
-            writer.add_scalar("charts/actor_grad_norms", actor_grad_norms.max().item(), iteration)
+            # writer.add_scalar("charts/actor_grad_norms", actor_grad_norms.max().item(), iteration)
             writer.add_scalar("charts/critic_grad_norms", critic_grad_norms.max().item(), iteration)
 
             writer.add_scalar("losses/obsPredictor_obs_loss", obsPredictor_obs_loss.item(), iteration)
