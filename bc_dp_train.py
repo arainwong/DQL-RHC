@@ -17,6 +17,7 @@ from mani_skill.utils import gym_utils
 from mani_skill.utils.registration import REGISTERED_ENVS
 
 from collections import defaultdict
+from tqdm import tqdm
 
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.sampler import RandomSampler, BatchSampler
@@ -127,7 +128,7 @@ class SmallDemoDataset_DiffusionPolicy(Dataset): # Load everything into GPU memo
         self.slices = []
         num_traj = len(trajectories['actions'])
         total_transitions = 0
-        for traj_idx in range(num_traj):
+        for traj_idx in tqdm(range(num_traj)):
             L = trajectories['actions'][traj_idx].shape[0]
             assert trajectories['observations'][traj_idx].shape[0] == L + 1
             total_transitions += L
