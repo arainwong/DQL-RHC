@@ -46,13 +46,13 @@ We modified several baseline algorithms, including BC-based architectures, offli
     # with no args this prints all available datasets
     python -m mani_skill.utils.download_demo
     
-    # Download the demonstration dataset for certain task
+    # download the demonstration dataset for certain task
     python -m mani_skill.utils.download_demo 'PushCube-v1'
     python -m mani_skill.utils.download_demo 'StackCube-v1'
     python -m mani_skill.utils.download_demo 'PickCube-v1'
     python -m mani_skill.utils.download_demo 'PegInsertionSide-v1'
     ...
-    # Download the full datasets
+    # download the full datasets
     python -m mani_skill.utils.download_demo all
     ```
     
