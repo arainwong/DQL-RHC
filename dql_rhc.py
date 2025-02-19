@@ -69,7 +69,7 @@ class Args:
     """the learning rate of the diffusion policy"""
     critic_lr: float = 1e-4
     """the learning rate of the critic"""
-    obsPredictor_lr: float = 1e-4
+    dynamicPredictor_lr: float = 1e-4
     """the learning rate of the observation predictor"""
     obs_horizon: int = 2 # Seems not very important in ManiSkill, 1, 2, 4 work well
     act_horizon: int = 8 # Seems not very important in ManiSkill, 4, 8, 15 work well
@@ -284,8 +284,8 @@ class SmallDemoDataset_DiffusionPolicy(Dataset): # Load everything into GPU memo
     def __len__(self):
         return len(self.slices)
 
-# ALGO LOGIC: initialize Obspredictor here:
-class ObsPredictor(nn.Module):
+# ALGO LOGIC: initialize Dynamic Predictor here:
+class DynamicPredictor(nn.Module):
     """
     input:  state -> (B, state_dim)
             action -> (B, action_dim)
@@ -295,7 +295,7 @@ class ObsPredictor(nn.Module):
     In semantic, state is equivalent to obs.
     """
     def __init__(self, env):
-        super(ObsPredictor, self).__init__()
+        super(DynamicPredictor, self).__init__()
 
         self.act_dim = env.single_action_space.shape[0]
         self.state_dim = env.single_observation_space.shape[1] # (obs_horizon, state_dim)
@@ -474,7 +474,7 @@ def save_ckpt(run_name, tag):
     os.makedirs(f'runs/{run_name}/checkpoints', exist_ok=True)
     ema.copy_to(ema_model.parameters())
     torch.save({
-        'obsPredictor': obsPredictor.state_dict(),
+        'dynamicPredictor': dynamicPredictor.state_dict(),
         'critic': critic.state_dict(),
         'critic_target': critic_target.state_dict(),
         'actor': actor.state_dict(),
@@ -566,8 +566,8 @@ if __name__ == "__main__":
     critic_target = copy.deepcopy(critic)
     critic_optimizer = optim.Adam(list(critic.parameters()), lr=args.critic_lr)
 
-    obsPredictor = ObsPredictor(envs).to(device)
-    obsPredictor_optimizer = optim.Adam(list(obsPredictor.parameters()), lr=args.obsPredictor_lr)
+    dynamicPredictor = DynamicPredictor(envs).to(device)
+    dynamicPredictor_optimizer = optim.Adam(list(dynamicPredictor.parameters()), lr=args.dynamicPredictor_lr)
 
     # Cosine LR schedule with linear warmup
     critic_lr_scheduler = get_scheduler(
@@ -623,31 +623,31 @@ if __name__ == "__main__":
         # data_batch = {k: v.cuda(non_blocking=True) for k, v in data_batch.items()}
 
         ################################
-        ###### ObsPredictor Train ######
+        ###### DynamicPredictor Train ######
         ################################
-        obsPredictor_starttime = datetime.datetime.now()
+        dynamicPredictor_starttime = datetime.datetime.now()
 
-        obsPredictor_obs_loss = 0.0
-        obsPredictor_reward_loss = 0.0
-        obsPredictor_loss = 0.0
+        dynamicPredictor_obs_loss = 0.0
+        dynamicPredictor_reward_loss = 0.0
+        dynamicPredictor_loss = 0.0
         for t in range(args.pred_horizon):
             obs_t = full_observations[:, t, :]
             act_t = full_actions[:, t, :]
             true_obs_tp1 = full_next_observations[:, t, :]
             true_reward_t = full_rewards[:, t]
 
-            pred_obs_tp1, pred_reward_t = obsPredictor.forward(obs_t, act_t)
+            pred_obs_tp1, pred_reward_t = dynamicPredictor.forward(obs_t, act_t)
 
-            obsPredictor_obs_loss += F.mse_loss(pred_obs_tp1, true_obs_tp1)
-            obsPredictor_reward_loss += F.mse_loss(pred_reward_t, true_reward_t.unsqueeze(-1))
-        obsPredictor_loss = obsPredictor_obs_loss + obsPredictor_reward_loss
-            # obsPredictor_loss = F.mse_loss(pred_obs_tp1, true_obs_tp1) + F.mse_loss(pred_reward_t, true_reward_t.unsqueeze(-1))
+            dynamicPredictor_obs_loss += F.mse_loss(pred_obs_tp1, true_obs_tp1)
+            dynamicPredictor_reward_loss += F.mse_loss(pred_reward_t, true_reward_t.unsqueeze(-1))
+        dynamicPredictor_loss = dynamicPredictor_obs_loss + dynamicPredictor_reward_loss
+            # dynamicPredictor_loss = F.mse_loss(pred_obs_tp1, true_obs_tp1) + F.mse_loss(pred_reward_t, true_reward_t.unsqueeze(-1))
 
-        obsPredictor_optimizer.zero_grad()
-        obsPredictor_loss.backward()
-        obsPredictor_optimizer.step()
+        dynamicPredictor_optimizer.zero_grad()
+        dynamicPredictor_loss.backward()
+        dynamicPredictor_optimizer.step()
 
-        obsPredictor_endtime = datetime.datetime.now()
+        dynamicPredictor_endtime = datetime.datetime.now()
 
         ################################
         ######### Critic Train #########
@@ -671,7 +671,7 @@ if __name__ == "__main__":
                 next_obs_action = ema_model.get_action(data_batch['observations'])
                 obs_t = data_batch['observations'][:, -1]
                 for t in range(args.act_horizon-1):
-                    pred_obs_tp1, pred_reward_t = obsPredictor.forward(obs_t, next_obs_action[:, t])
+                    pred_obs_tp1, pred_reward_t = dynamicPredictor.forward(obs_t, next_obs_action[:, t])
                     obs_t = pred_obs_tp1
                     next_obs.append(obs_t)
                     cumulative_rewards.append(pred_reward_t.squeeze(-1))
@@ -732,7 +732,7 @@ if __name__ == "__main__":
         act_t = act_seq[:, 0]
         for t in range(args.act_horizon):
             Q = critic.q1(obs_t, act_t).squeeze(-1)
-            obs_t, _ = obsPredictor(obs_t, act_t)
+            obs_t, _ = dynamicPredictor(obs_t, act_t)
             act_t = act_seq[:, t]
             Q_seq.append(Q)
         Q_seq = torch.stack(Q_seq, dim=-1)
@@ -776,18 +776,18 @@ if __name__ == "__main__":
         ################################        
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if iteration % args.log_freq == 0:
-            obsPredictor_runtime = (obsPredictor_endtime - obsPredictor_starttime).total_seconds() / 60
+            dynamicPredictor_runtime = (dynamicPredictor_endtime - dynamicPredictor_starttime).total_seconds() / 60
             critic_runtime = (critic_endtime - critic_starttime).total_seconds() / 60
             actor_runtime = (actor_endtime - actor_starttime).total_seconds() / 60
             print(f"\n################### Iteration {iteration}, Progress {iteration/args.total_iters*100}% ########################")
             print(f"------------------------------------------------------")
-            print(f"obsPredictor_runtime: {obsPredictor_runtime * args.log_freq} mins.")
+            print(f"dynamicPredictor_runtime: {dynamicPredictor_runtime * args.log_freq} mins.")
             print(f"critic_runtime: {critic_runtime * args.log_freq} mins.")
             print(f"actor_runtime: {actor_runtime * args.log_freq} mins.")
             print(f"------------------------------------------------------")
-            print(f"obsPredictor_obs_loss: {obsPredictor_obs_loss.item()}")
-            print(f"obsPredictor_reward_loss: {obsPredictor_reward_loss.item()}")
-            print(f"obsPredictor_loss: {obsPredictor_loss.item()}")
+            print(f"dynamicPredictor_obs_loss: {dynamicPredictor_obs_loss.item()}")
+            print(f"dynamicPredictor_reward_loss: {dynamicPredictor_reward_loss.item()}")
+            print(f"dynamicPredictor_loss: {dynamicPredictor_loss.item()}")
             print(f"------------------------------------------------------")
             print(f"Q1: {current_Q1.mean().item()}, Q2: {current_Q2.mean().item()}, target_Q_mean[:4, :]: {target_Q_mean[:4, :].flatten()}")
             # print(f"current_Q1: {current_Q1[:4, :].flatten()}")
@@ -807,9 +807,9 @@ if __name__ == "__main__":
             # writer.add_scalar("charts/actor_grad_norms", actor_grad_norms.max().item(), iteration)
             writer.add_scalar("charts/critic_grad_norms", critic_grad_norms.max().item(), iteration)
 
-            writer.add_scalar("losses/obsPredictor_obs_loss", obsPredictor_obs_loss.item(), iteration)
-            writer.add_scalar("losses/obsPredictor_reward_loss", obsPredictor_reward_loss.item(), iteration)
-            writer.add_scalar("losses/obsPredictor_loss", obsPredictor_loss.item(), iteration)
+            writer.add_scalar("losses/dynamicPredictor_obs_loss", dynamicPredictor_obs_loss.item(), iteration)
+            writer.add_scalar("losses/dynamicPredictor_reward_loss", dynamicPredictor_reward_loss.item(), iteration)
+            writer.add_scalar("losses/dynamicPredictor_loss", dynamicPredictor_loss.item(), iteration)
             
             writer.add_scalar("losses/current_Q1", current_Q1.mean().item(), iteration)
             writer.add_scalar("losses/current_Q2", current_Q2.mean().item(), iteration)
