@@ -591,7 +591,7 @@ if __name__ == "__main__":
     ema_model = Actor(envs, args).to(device)
 
     # ---------------------------------------------------------------------------- #
-    # Other hyperparameters
+    # --------------------- Other hyperparameters settings ----------------------- #
     # ---------------------------------------------------------------------------- #
     horizon_comp_mode = 'exponential_decay' # uniform or exponential_decay
     if horizon_comp_mode == 'exponential_decay':
@@ -600,7 +600,7 @@ if __name__ == "__main__":
 
 
     # ---------------------------------------------------------------------------- #
-    # Training begins.
+    # ------------------------------ Training begins ----------------------------- #
     # ---------------------------------------------------------------------------- #
     actor.train()
 
@@ -622,9 +622,9 @@ if __name__ == "__main__":
         # # copy data from cpu to gpu
         # data_batch = {k: v.cuda(non_blocking=True) for k, v in data_batch.items()}
 
-        ################################
-        ###### DynamicPredictor Train ######
-        ################################
+        #####################################
+        ###### Dynamic Predictor Train ######
+        #####################################
         dynamicPredictor_starttime = datetime.datetime.now()
 
         dynamicPredictor_obs_loss = 0.0

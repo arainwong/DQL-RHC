@@ -14,7 +14,7 @@ We modified several baseline algorithms, including BC-based architectures, offli
 - **BC-based methods**:
     - **BC** (Behaviour Cloning)
     - **DP-single** (Diffusion Policy in single step design)
-    - [**DP-RHC**](https://github.com/real-stanford/diffusion_policy)
+    - [**DP-RHC**](https://github.com/real-stanford/diffusion_policy) (Diffusion Policy)
 - **Offline RL methods**:
     - **SAC** (Soft Actor-Critic)
     - **PPO** (Proximal Policy Optimization)
@@ -23,7 +23,7 @@ We modified several baseline algorithms, including BC-based architectures, offli
     - [**DQL**](https://github.com/Zhendong-Wang/Diffusion-Policies-for-Offline-RL) (Diffusion Policies for Offline RL)
     - **★** **DQL-RHC ★**
 
-## Example
+## Installation and Implementation
 
 - Environment Creation: `conda create -n maniskill python=3.9`
 - ManiSkill3 and dependencies Installation:
