@@ -2,7 +2,10 @@
 
 ## DQL-RHC Overview
 ![Overview](/assets/method.jpg)
-The overall architecture of DQL-RHC and the information flow between its components. The framework consists of four main components: the long dataset, the dynamic predictor, the critic, and the actor. The long dataset stores sequence-wise historical $\{S, S', A, R, \text{DONE}\}$ transitions, which are used by the dynamic predictor to generate future state sequence and the corresponding predicted reward sequence. These predicted values are then processed by the critic to estimate Q values, while the actor utilizes these Q values to generate optimal actions. The red-colored action sequence represent the planned actions over the action horizon.
+The overall architecture of DQL-RHC and the information flow between its components. The framework consists of four main components: the long dataset, the dynamic predictor, the critic, and the actor. 
+
+The **long dataset** stores sequence-wise historical $\{S, S', A, R, \text{DONE}\}$ transitions, which are used by the **dynamic predictor** to generate future state sequence and the corresponding predicted reward sequence. These predicted values are then processed by the **critic** to estimate Q values, while the **actor** utilizes these Q values to generate optimal actions. 
+
 
 ## Installation
 
